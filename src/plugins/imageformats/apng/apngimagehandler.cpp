@@ -8,11 +8,6 @@ ApngImageHandler::ApngImageHandler() :
 
 ApngImageHandler::~ApngImageHandler() = default;
 
-QByteArray ApngImageHandler::name() const
-{
-	return "apng";
-}
-
 bool ApngImageHandler::canRead() const
 {
 	auto valid = _reader->init(device());
