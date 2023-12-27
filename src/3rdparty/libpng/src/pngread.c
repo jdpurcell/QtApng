@@ -284,7 +284,7 @@ png_read_frame_head(png_structp png_ptr, png_infop info_ptr)
 
     png_debug(0, "Reading frame head");
 
-    if (!(png_ptr->mode & PNG_HAVE_acTL))
+    if ((png_ptr->mode & PNG_HAVE_acTL) == 0)
         png_error(png_ptr, "attempt to png_read_frame_head() but "
                            "no acTL present");
 
@@ -304,7 +304,7 @@ png_read_frame_head(png_structp png_ptr, png_infop info_ptr)
         if (png_ptr->chunk_name == png_IDAT)
         {
             /* discard trailing IDATs for the first frame */
-            if (have_chunk_after_DAT || png_ptr->num_frames_read > 1)
+            if (have_chunk_after_DAT != 0 || png_ptr->num_frames_read > 1)
                 png_error(png_ptr, "png_read_frame_head(): out of place IDAT");
             png_crc_finish(png_ptr, length);
         }
@@ -320,9 +320,9 @@ png_read_frame_head(png_structp png_ptr, png_infop info_ptr)
             png_ensure_sequence_number(png_ptr, length);
 
             /* discard trailing fdATs for frames other than the first */
-            if (!have_chunk_after_DAT && png_ptr->num_frames_read > 1)
+            if (have_chunk_after_DAT == 0 && png_ptr->num_frames_read > 1)
                 png_crc_finish(png_ptr, length - 4);
-            else if(png_ptr->mode & PNG_HAVE_fcTL)
+            else if (png_ptr->mode & PNG_HAVE_fcTL)
             {
                 png_ptr->idat_size = length - 4;
                 png_ptr->mode |= PNG_HAVE_IDAT;
@@ -340,7 +340,7 @@ png_read_frame_head(png_structp png_ptr, png_infop info_ptr)
         }
     }
 }
-#endif /* PNG_READ_APNG_SUPPORTED */
+#endif /* READ_APNG */
 
 /* Optional call to update the users info_ptr structure */
 void PNGAPI
@@ -3532,7 +3532,6 @@ png_image_read_background(png_voidp argument)
 
             for (pass = 0; pass < passes; ++pass)
             {
-               png_bytep row = png_voidcast(png_bytep, display->first_row);
                unsigned int     startx, stepx, stepy;
                png_uint_32      y;
 
@@ -3637,8 +3636,6 @@ png_image_read_background(png_voidp argument)
 
                         inrow += 2; /* gray and alpha channel */
                      }
-
-                     row += display->row_bytes;
                   }
                }
             }
@@ -3845,13 +3842,13 @@ png_image_read_direct(png_voidp argument)
          mode = PNG_ALPHA_PNG;
          output_gamma = PNG_DEFAULT_sRGB;
       }
-      
+
       if ((change & PNG_FORMAT_FLAG_ASSOCIATED_ALPHA) != 0)
       {
          mode = PNG_ALPHA_OPTIMIZED;
          change &= ~PNG_FORMAT_FLAG_ASSOCIATED_ALPHA;
       }
-      
+
       /* If 'do_local_background' is set check for the presence of gamma
        * correction; this is part of the work-round for the libpng bug
        * described above.
