@@ -35,8 +35,6 @@ if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
 endif()
 
-cmake_policy(SET CMP0077 NEW)
-
 include(CheckCSourceCompiles)
 include(GNUInstallDirs)
 
@@ -667,7 +665,6 @@ if(PNG_DEBUG)
 endif()
 
 # Now build our targets.
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${ZLIB_INCLUDE_DIRS})
 
 # Initialize the list of libpng library targets.
 set(PNG_LIBRARY_TARGETS "")
@@ -719,7 +716,7 @@ if(PNG_SHARED)
                              PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
   target_include_directories(png_shared SYSTEM
                              INTERFACE $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libpng${PNGLIB_ABI_VERSION}>)
-  target_link_libraries(png_shared PUBLIC ${ZLIB_LIBRARIES} ${M_LIBRARY})
+  target_link_libraries(png_shared PUBLIC ZLIB::ZLIB ${M_LIBRARY})
 endif()
 
 if(PNG_STATIC)
@@ -733,7 +730,7 @@ if(PNG_STATIC)
                              PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
   target_include_directories(png_static SYSTEM
                              INTERFACE $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libpng${PNGLIB_ABI_VERSION}>)
-  target_link_libraries(png_static PUBLIC ${ZLIB_LIBRARIES} ${M_LIBRARY})
+  target_link_libraries(png_static PUBLIC ZLIB::ZLIB ${M_LIBRARY})
 endif()
 
 if(PNG_FRAMEWORK AND NOT APPLE)
@@ -762,7 +759,7 @@ if(PNG_FRAMEWORK)
                              PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
   target_include_directories(png_framework SYSTEM
                              INTERFACE $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libpng${PNGLIB_ABI_VERSION}>)
-  target_link_libraries(png_framework PUBLIC ${ZLIB_LIBRARIES} ${M_LIBRARY})
+  target_link_libraries(png_framework PUBLIC ZLIB::ZLIB ${M_LIBRARY})
 endif()
 
 if(NOT PNG_LIBRARY_TARGETS)
@@ -967,7 +964,7 @@ if(PNG_SHARED AND PNG_TOOLS)
   set(PNG_BIN_TARGETS pngfix)
 
   add_executable(png-fix-itxt ${png_fix_itxt_sources})
-  target_link_libraries(png-fix-itxt PRIVATE ${ZLIB_LIBRARIES} ${M_LIBRARY})
+  target_link_libraries(png-fix-itxt PRIVATE ZLIB::ZLIB ${M_LIBRARY})
   list(APPEND PNG_BIN_TARGETS png-fix-itxt)
 endif()
 

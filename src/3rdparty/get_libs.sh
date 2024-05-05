@@ -24,7 +24,7 @@ curl -Lo libpng-apng.patch.gz "https://download.sourceforge.net/project/apng/lib
 gunzip libpng-apng.patch.gz
 pushd libpng/src
 patch -Np0 -i "../../libpng-apng.patch"
-patch -Np1 -i "../fix-cmake-policy.patch"
+#patch -Np1 -i "../fix-cmake-policy.patch"
 cp scripts/pnglibconf.h.prebuilt pnglibconf.h
 popd
 rm libpng-apng.patch
