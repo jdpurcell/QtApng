@@ -1,3 +1,3 @@
 set(SKIP_INSTALL_ALL ON)
-get_target_property(ZLIB_ROOT zlibstatic INCLUDE_DIRECTORIES)
+set(ZLIB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../zlib/src")
 add_subdirectory(src)
