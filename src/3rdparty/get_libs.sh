@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-ZLIB_VERSION="1.2.11"
+ZLIB_VERSION="1.3.1"
 LIBPNG_VERSION="1.6.43"
 
 cd $(dirname $0)
