@@ -7,12 +7,20 @@ project(
   LANGUAGES CXX)
 
 option(APNG_TESTS "Enable tests" OFF)
+option(APNG_QT6 "Build with Qt 6" ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui)
+if (${APNG_QT6})
+  set(APNG_QT_VERSION 6)
+else ()
+  set(APNG_QT_VERSION 5)
+  include(cmake/Qt5Plugin.cmake)
+endif ()
+
+find_package(Qt${APNG_QT_VERSION} REQUIRED COMPONENTS Core Gui)
 
 add_subdirectory(src)
 
 if(APNG_TESTS)
-  find_package(Qt6 REQUIRED COMPONENTS Test)
+  find_package(Qt${APNG_QT_VERSION} REQUIRED COMPONENTS Test)
   add_subdirectory(tests)
 endif()
