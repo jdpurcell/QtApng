@@ -1,5 +1,11 @@
-set(APNG_SOURCES apngimagehandler_p.h apngimagehandler.cpp apngimageplugin.cpp
-  apngimageplugin.h apngreader_p.h apngreader.cpp)
+set(APNG_SOURCES
+  apngimagehandler_p.h
+  apngimagehandler.cpp
+  apngimageplugin.cpp
+  apngimageplugin.h
+  apngreader_p.h
+  apngreader.cpp
+)
 
 qt_add_plugin(ApngImagePlugin SHARED ${APNG_SOURCES})
 
@@ -12,6 +18,11 @@ target_link_libraries(ApngImagePlugin PRIVATE
 
 get_target_property(_png_include png_static INCLUDE_DIRECTORIES)
 target_include_directories(ApngImagePlugin PRIVATE ${_png_include})
+
+target_compile_definitions(ApngImagePlugin PRIVATE
+  QT_DEPRECATED_WARNINGS
+  QT_ASCII_CAST_WARNINGS
+)
 
 set_target_properties(ApngImagePlugin PROPERTIES
   AUTOMOC ON

@@ -1,3 +1,8 @@
+# This file contains the minimal code to compile a shared Qt plugin with CMake.
+# It's based on qt6_add_plugin from Qt6 with all code not related to shared
+# plugins (module libraries) removed. Internal functions have the prefix
+# _qt_wrap instead of _qt.
+
 function(_qt_wrap_internal_apply_shared_win_prefix_and_suffix target)
     if(WIN32 AND NOT MSVC)
             set_property(TARGET "${target}" PROPERTY IMPORT_SUFFIX ".a")
