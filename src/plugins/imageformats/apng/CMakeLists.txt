@@ -7,7 +7,9 @@ set(APNG_SOURCES
   apngreader.cpp
 )
 
-qt_add_plugin(ApngImagePlugin SHARED ${APNG_SOURCES})
+qt_add_plugin(ApngImagePlugin SHARED)
+
+target_sources(ApngImagePlugin PRIVATE ${APNG_SOURCES})
 
 target_link_libraries(ApngImagePlugin PRIVATE 
   Qt${APNG_QT_VERSION}::Core
