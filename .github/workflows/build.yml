@@ -25,7 +25,7 @@ jobs:
           - {host: windows, target: desktop, qt-version: "6.7.0",  arch: win64_msvc2019_64}
           - {host: linux,   target: desktop, qt-version: "5.15.2", arch: gcc_64}
           - {host: linux,   target: desktop, qt-version: "6.5.3",  arch: gcc_64}
-          - {host: linux,   target: desktop, qt-version: "6.7.0",  arch: gcc_64}
+          - {host: linux,   target: desktop, qt-version: "6.7.0",  arch: linux_gcc_64}
           - {host: linux,   target: android, qt-version: "5.15.2", arch: android}
           - {host: linux,   target: android, qt-version: "6.5.3",  arch: android_arm64_v8a}
           - {host: linux,   target: android, qt-version: "6.7.0",  arch: android_arm64_v8a}
@@ -66,8 +66,7 @@ jobs:
             -DCMAKE_SYSTEM_NAME=Android \
             -DCMAKE_SYSTEM_VERSION=26 \
             -DCMAKE_ANDROID_ARCH_ABI=arm64-v8a \
-            "-DCMAKE_ANDROID_NDK=${{steps.setup-ndk.outputs.ndk-path}}" \
-            -DCMAKE_ANDROID_STL_TYPE=gabi++_static
+            "-DCMAKE_ANDROID_NDK=${{steps.setup-ndk.outputs.ndk-path}}"
 
       - name: Configure (iOS)
         if: matrix.arch == 'ios'
@@ -82,7 +81,7 @@ jobs:
       - name: Configure (macOS Desktop)
         if: matrix.host == 'mac' && matrix.target == 'desktop'
         run: |
-          cmake -B build -DCMAKE_OSX_ARCHITECTURES=arm64;x86_64 ${{ env.APNG_FLAGS }}
+          cmake -B build -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" ${{ env.APNG_FLAGS }}
 
       - name: Configure (Linux)
         if: matrix.host == 'linux' && startsWith(matrix.arch, 'gcc')
