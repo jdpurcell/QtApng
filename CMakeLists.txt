@@ -10,11 +10,13 @@ option(APNG_TESTS "Enable tests" OFF)
 option(APNG_EXAMPLES "Enable examples" OFF)
 option(APNG_QT6 "Build with Qt 6" ON)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
 if (${APNG_QT6})
   set(APNG_QT_VERSION 6)
 else ()
   set(APNG_QT_VERSION 5)
-  include(cmake/Qt5Plugin.cmake)
+  include(Qt5Plugin.cmake)
 endif ()
 
 find_package(Qt${APNG_QT_VERSION} REQUIRED COMPONENTS Core Gui)
