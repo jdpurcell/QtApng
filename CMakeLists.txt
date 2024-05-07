@@ -16,7 +16,7 @@ if (${APNG_QT6})
   set(APNG_QT_VERSION 6)
 else ()
   set(APNG_QT_VERSION 5)
-  include(Qt5Plugin.cmake)
+  include(Qt5Plugin)
 endif ()
 
 find_package(Qt${APNG_QT_VERSION} REQUIRED COMPONENTS Core Gui)
