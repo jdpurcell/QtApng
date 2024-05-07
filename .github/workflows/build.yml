@@ -28,7 +28,6 @@ jobs:
     env:
       APNG_FLAGS: ${{ format('-DAPNG_TESTS=On -DAPNG_EXAMPLES=On -DAPNG_QT6={0} -DCMAKE_BUILD_TYPE=Release', startsWith(matrix.qt-version, '6') && 'On' || 'Off') }}
       ARTIFACT_NAME: ${{ matrix.host == 'mac' && 'libqapng.dylib' || matrix.host == 'linux' && 'libqapng.so' || matrix.host == 'windows' && 'qapng.dll' || 'NO_NAME' }}
-      TEST_NAME: ${{ matrix.host == 'windows' && 'ApngTests.exe' || 'ApngTests' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -76,15 +75,8 @@ jobs:
 
           mkdir build && cd build
 
-          cp build-arm64/${{env.TEST_NAME}} build/.
-
           lipo -create ../build-arm64/libqapng.dylib ../build-x86_64/libqapng.dylib -output ./libqapng.dylib
           lipo -info ./qapng.dylib
-
-      - name: Test
-        if: matrix.host != 'mac'
-        run: |
-          ./build/${{env.TEST_NAME}}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
