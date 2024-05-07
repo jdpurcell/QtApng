@@ -30,14 +30,14 @@ jobs:
           - {host: linux,   target: android, qt-version: "6.5.3",  arch: android_arm64_v8a}
           - {host: linux,   target: android, qt-version: "6.7.0",  arch: android_arm64_v8a}
 
-    runs-on: ${{ format('{1}-latest', (matrix.host == 'mac' && 'macos') || (matrix.host == 'linux' && 'ubuntu') || matrix.host) }}
+    runs-on: ${{ format('{0}-latest', (matrix.host == 'mac' && 'macos') || (matrix.host == 'linux' && 'ubuntu') || matrix.host) }}
     env:
       IS_IOS: ${{ matrix.arch == 'ios' }}
       IS_ANDROID: ${{ startsWith(matrix.arch, 'android') }}
       IS_WINDOWS: ${{ matrix.host == 'windows' }}
       IS_MACOS_DESKTOP: ${{ matrix.host == 'mac' && matrix.target == 'desktop' }}
       IS_WIN32: ${{ startsWith(matrix.arch, 'win32') }}
-      APNG_FLAGS: ${{ format('-DAPNG_TESTS=On -DAPNG_EXAMPLES=On -DAPNG_QT6={1} -DCMAKE_BUILD_TYPE=Release', startsWith(matrix.qt-version, '6') && 'On' || 'Off') }}
+      APNG_FLAGS: ${{ format('-DAPNG_TESTS=On -DAPNG_EXAMPLES=On -DAPNG_QT6={0} -DCMAKE_BUILD_TYPE=Release', startsWith(matrix.qt-version, '6') && 'On' || 'Off') }}
     steps:
       - uses: actions/checkout@v4
         with:
