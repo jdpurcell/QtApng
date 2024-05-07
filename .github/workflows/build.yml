@@ -13,9 +13,9 @@ jobs:
       matrix:
         # prettier-ignore
         include:
-          - {host: mac,     target: desktop, qt-version: "5.15.2", arch: clang64}
-          - {host: mac,     target: desktop, qt-version: "6.5.3",  arch: clang64}
-          - {host: mac,     target: desktop, qt-version: "6.7.0",  arch: clang64}
+          - {host: mac,     target: desktop, qt-version: "5.15.2", arch: clang_64}
+          - {host: mac,     target: desktop, qt-version: "6.5.3",  arch: clang_64}
+          - {host: mac,     target: desktop, qt-version: "6.7.0",  arch: clang_64}
           - {host: mac,     target: ios,     qt-version: "5.15.2", arch: ios}
           - {host: mac,     target: ios,     qt-version: "6.5.3",  arch: ios}
           - {host: mac,     target: ios,     qt-version: "6.7.0",  arch: ios}
@@ -23,20 +23,15 @@ jobs:
           - {host: windows, target: desktop, qt-version: "5.15.2", arch: win32_msvc2019}
           - {host: windows, target: desktop, qt-version: "6.5.3",  arch: win64_msvc2019_64}
           - {host: windows, target: desktop, qt-version: "6.7.0",  arch: win64_msvc2019_64}
-          - {host: linux,   target: desktop, qt-version: "5.15.2", arch: gcc64}
-          - {host: linux,   target: desktop, qt-version: "6.5.3",  arch: gcc64}
-          - {host: linux,   target: desktop, qt-version: "6.7.0",  arch: gcc64}
+          - {host: linux,   target: desktop, qt-version: "5.15.2", arch: gcc_64}
+          - {host: linux,   target: desktop, qt-version: "6.5.3",  arch: gcc_64}
+          - {host: linux,   target: desktop, qt-version: "6.7.0",  arch: gcc_64}
           - {host: linux,   target: android, qt-version: "5.15.2", arch: android}
           - {host: linux,   target: android, qt-version: "6.5.3",  arch: android_arm64_v8a}
           - {host: linux,   target: android, qt-version: "6.7.0",  arch: android_arm64_v8a}
 
     runs-on: ${{ format('{0}-latest', (matrix.host == 'mac' && 'macos') || (matrix.host == 'linux' && 'ubuntu') || matrix.host) }}
     env:
-      IS_IOS: ${{ matrix.arch == 'ios' }}
-      IS_ANDROID: ${{ startsWith(matrix.arch, 'android') }}
-      IS_WINDOWS: ${{ matrix.host == 'windows' }}
-      IS_MACOS_DESKTOP: ${{ matrix.host == 'mac' && matrix.target == 'desktop' }}
-      IS_WIN32: ${{ startsWith(matrix.arch, 'win32') }}
       APNG_FLAGS: ${{ format('-DAPNG_TESTS=On -DAPNG_EXAMPLES=On -DAPNG_QT6={0} -DCMAKE_BUILD_TYPE=Release', startsWith(matrix.qt-version, '6') && 'On' || 'Off') }}
     steps:
       - uses: actions/checkout@v4
@@ -53,44 +48,44 @@ jobs:
       - name: Setup NDK (Android)
         uses: nttld/setup-ndk@v1
         id: setup-ndk
-        if: ${{ env.IS_ANDROID }}
+        if: startsWith(matrix.arch, 'android')
         with:
           ndk-version: r26b
           add-to-path: false
 
       - name: Enable Developer Command Prompt (Windows)
-        if: ${{ env.IS_WINDOWS }}
+        if: matrix.host == 'windows'
         uses: ilammy/msvc-dev-cmd@v1.13.0
         with:
-          arch: ${{ env.IS_WIN32 && 'x86' || 'x64' }}
+          arch: ${{ startsWith(matrix.arch, 'win32') && 'x86' || 'x64' }}
 
       - name: Configure (Android)
-        if: ${{ env.IS_IOS }}
+        if: startsWith(matrix.arch, 'android')
         run: |
           cmake -B build ${{ env.APNG_FLAGS }} \
             -DCMAKE_SYSTEM_NAME=Android \
             -DCMAKE_SYSTEM_VERSION=26 \
             -DCMAKE_ANDROID_ARCH_ABI=arm64-v8a \
             "-DCMAKE_ANDROID_NDK=${{steps.setup-ndk.outputs.ndk-path}}" \
-            -DCMAKE_ANDROID_STL_TYPE=gnustl_static
+            -DCMAKE_ANDROID_STL_TYPE=gabi++_static
 
       - name: Configure (iOS)
-        if: ${{ env.IS_IOS }}
+        if: matrix.arch == 'ios'
         run: |
           cmake -B build -GXcode -DCMAKE_SYSTEM_NAME=iOS ${{ env.APNG_FLAGS }}
 
       - name: Configure (Windows)
-        if: ${{ env.IS_WINDOWS }}
+        if: matrix.host == 'windows'
         run: |
-          cmake -B build -A ${{ env.IS_WIN32 && 'Win32' || 'x64' }} ${{ env.APNG_FLAGS }}
+          cmake -B build -A ${{ startsWith(matrix.arch, 'win32') && 'Win32' || 'x64' }} ${{ env.APNG_FLAGS }}
 
       - name: Configure (macOS Desktop)
-        if: ${{ env.IS_WINDOWS }}
+        if: matrix.host == 'mac' && matrix.target == 'desktop'
         run: |
           cmake -B build -DCMAKE_OSX_ARCHITECTURES=arm64;x86_64 ${{ env.APNG_FLAGS }}
 
-      - name: Configure (common)
-        if: ${{ !(env.IS_ANDROID || env.IS_IOS || env.IS_WINDOWS || env.IS_MACOS_DESKTOP) }}
+      - name: Configure (Linux)
+        if: matrix.host == 'linux' && startsWith(matrix.arch, 'gcc')
         run: |
           cmake -B build ${{ env.APNG_FLAGS }}
 
