@@ -2,9 +2,9 @@ name: Build
 
 on:
   push:
-    branches: [master, main]
+    branches: [master]
   pull_request:
-    branches: [master, main]
+    branches: [master]
 
 jobs:
   build:
@@ -27,10 +27,13 @@ jobs:
     runs-on: ${{ format('{0}-latest', (matrix.host == 'mac' && 'macos') || (matrix.host == 'linux' && 'ubuntu') || matrix.host) }}
     env:
       APNG_FLAGS: ${{ format('-DAPNG_TESTS=On -DAPNG_EXAMPLES=On -DAPNG_QT6={0} -DCMAKE_BUILD_TYPE=Release', startsWith(matrix.qt-version, '6') && 'On' || 'Off') }}
+      ARTIFACT_NAME: ${{ matrix.host == 'mac' && 'libqapng.dylib' || matrix.host == 'linux' && 'libqapng.so' || matrix.host == 'windows' && 'qapng.dll' || 'NO_NAME' }}
+      TEST_NAME: ${{ matrix.host == 'windows' && 'ApngTests.exe' || 'ApngTests' }}
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+
       - name: Install Qt
         uses: jurplel/install-qt-action@v3
         with:
@@ -73,5 +76,56 @@ jobs:
 
           mkdir build && cd build
 
-          lipo -create ../build-arm64/qapng.dylib ../build-x86_64/qapng.dylib -output ./qapng.dylib
+          cp build-arm64/${{env.TEST_NAME}} build/.
+
+          lipo -create ../build-arm64/libqapng.dylib ../build-x86_64/libqapng.dylib -output ./libqapng.dylib
           lipo -info ./qapng.dylib
+
+      - name: Test
+        if: matrix.host != 'mac'
+        run: |
+          ./build/${{env.TEST_NAME}}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{matrix.host}}-${{matrix.target}}-${{matrix.arch}}-${{matrix.qt-version}}-${{env.ARTIFACT_NAME}}
+          path: build/${{env.ARTIFACT_NAME}}
+
+  create-release:
+    needs: [build]
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/master')
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Create Directory
+        run: mkdir release-artifacts
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Show Artifacts
+        run: ls -R release-artifacts
+
+      - name: Create release
+        uses: ncipollo/release-action@v1.14.0
+        with:
+          replacesArtifacts: true
+          allowUpdates: true
+          artifactErrorsFailBuild: true
+          artifacts: "release-artifacts/*"
+          body: ${{ github.event.head_commit.message }}
+          prerelease: true
+          name: Continuous Build
+          tag: cont
+
+      - name: Update cont tag
+        run: |
+          git tag -f cont
+          git push -f origin cont
