@@ -16,9 +16,6 @@ jobs:
           - {host: mac,     target: desktop, qt-version: "5.15.2", arch: clang_64}
           - {host: mac,     target: desktop, qt-version: "6.5.3",  arch: clang_64}
           - {host: mac,     target: desktop, qt-version: "6.7.0",  arch: clang_64}
-          - {host: mac,     target: ios,     qt-version: "5.15.2", arch: ios}
-          - {host: mac,     target: ios,     qt-version: "6.5.3",  arch: ios}
-          - {host: mac,     target: ios,     qt-version: "6.7.0",  arch: ios}
           - {host: windows, target: desktop, qt-version: "5.15.2", arch: win64_msvc2019_64}
           - {host: windows, target: desktop, qt-version: "5.15.2", arch: win32_msvc2019}
           - {host: windows, target: desktop, qt-version: "6.5.3",  arch: win64_msvc2019_64}
@@ -26,9 +23,6 @@ jobs:
           - {host: linux,   target: desktop, qt-version: "5.15.2", arch: gcc_64}
           - {host: linux,   target: desktop, qt-version: "6.5.3",  arch: gcc_64}
           - {host: linux,   target: desktop, qt-version: "6.7.0",  arch: linux_gcc_64}
-          - {host: linux,   target: android, qt-version: "5.15.2", arch: android}
-          - {host: linux,   target: android, qt-version: "6.5.3",  arch: android_arm64_v8a}
-          - {host: linux,   target: android, qt-version: "6.7.0",  arch: android_arm64_v8a}
 
     runs-on: ${{ format('{0}-latest', (matrix.host == 'mac' && 'macos') || (matrix.host == 'linux' && 'ubuntu') || matrix.host) }}
     env:
@@ -45,48 +39,39 @@ jobs:
           target: ${{matrix.target}}
           arch: ${{matrix.arch}}
 
-      - name: Setup NDK (Android)
-        uses: nttld/setup-ndk@v1
-        id: setup-ndk
-        if: startsWith(matrix.arch, 'android')
-        with:
-          ndk-version: r26b
-          add-to-path: false
-
       - name: Enable Developer Command Prompt (Windows)
         if: matrix.host == 'windows'
         uses: ilammy/msvc-dev-cmd@v1.13.0
         with:
           arch: ${{ startsWith(matrix.arch, 'win32') && 'x86' || 'x64' }}
 
-      - name: Configure (Android)
-        if: startsWith(matrix.arch, 'android')
-        run: |
-          cmake -B build ${{ env.APNG_FLAGS }} \
-            -DCMAKE_SYSTEM_NAME=Android \
-            -DCMAKE_SYSTEM_VERSION=26 \
-            -DCMAKE_ANDROID_ARCH_ABI=arm64-v8a \
-            "-DCMAKE_ANDROID_NDK=${{steps.setup-ndk.outputs.ndk-path}}"
-
-      - name: Configure (iOS)
-        if: matrix.arch == 'ios'
-        run: |
-          cmake -B build -GXcode -DCMAKE_SYSTEM_NAME=iOS ${{ env.APNG_FLAGS }}
-
       - name: Configure (Windows)
         if: matrix.host == 'windows'
         run: |
           cmake -B build -A ${{ startsWith(matrix.arch, 'win32') && 'Win32' || 'x64' }} ${{ env.APNG_FLAGS }}
 
-      - name: Configure (macOS Desktop)
-        if: matrix.host == 'mac' && matrix.target == 'desktop'
+      - name: Configure (macOS)
+        if: matrix.host == 'mac'
         run: |
-          cmake -B build -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" ${{ env.APNG_FLAGS }}
+          cmake -B build-arm64 -DCMAKE_OSX_ARCHITECTURES=arm64 ${{ env.APNG_FLAGS }}
+          cmake -B build-x86_64 -DCMAKE_OSX_ARCHITECTURES=x86_64 ${{ env.APNG_FLAGS }}
 
       - name: Configure (Linux)
-        if: matrix.host == 'linux' && startsWith(matrix.arch, 'gcc')
+        if: matrix.host == 'linux'
         run: |
           cmake -B build ${{ env.APNG_FLAGS }}
 
-      - name: Build
+      - name: Build (Windows/Linux)
+        if: matrix.host != 'mac'
         run: cmake --build build
+
+      - name: Build (macOS)
+        if: matrix.host == 'mac'
+        run: |
+          cmake --build build-arm64
+          cmake --build build-x86_64
+
+          mkdir build && cd build
+
+          lipo -create ../build-arm64/qapng.dylib ../build-x86_64/qapng.dylib -output ./qapng.dylib
+          lipo -info ./qapng.dylib
