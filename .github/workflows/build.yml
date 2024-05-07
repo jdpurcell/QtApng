@@ -73,16 +73,19 @@ jobs:
           cmake --build build-arm64
           cmake --build build-x86_64
 
-          mkdir build && cd build
+          mkdir -p build/plugins/imageformats && cd build
 
-          lipo -create ../build-arm64/libqapng.dylib ../build-x86_64/libqapng.dylib -output ./libqapng.dylib
-          lipo -info ./qapng.dylib
+          lipo -create \
+            ../build-arm64/plugins/imageformats/libqapng.dylib \
+            ../build-x86_64/plugins/imageformats/libqapng.dylib \
+            -output ./plugins/imageformats/libqapng.dylib
+          lipo -info ./plugins/imageformats/libqapng.dylib
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{matrix.host}}-${{matrix.target}}-${{matrix.arch}}-${{matrix.qt-version}}-${{env.ARTIFACT_NAME}}
-          path: build/${{env.ARTIFACT_NAME}}
+          path: build/plugins/imageformats/${{env.ARTIFACT_NAME}}
 
   create-release:
     needs: [build]
