@@ -1,146 +1,98 @@
-name: CI build
+name: Build
 
-on: [push]
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
 
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
-        version:
-          - 5.14.1
-        platform:
-          - gcc_64
-          - android
-          - wasm_32
-          - msvc2017_64
-          - msvc2017
-          - winrt_x64_msvc2017
-          - winrt_x86_msvc2017
-          - winrt_armv7_msvc2017
-          - mingw73_64
-          - mingw73_32
-          - clang_64
-          - ios
-
+        # prettier-ignore
         include:
-          - platform: gcc_64
-            os: ubuntu-latest
-          - platform: android
-            os: ubuntu-latest
-          - platform: wasm_32
-            os: ubuntu-latest
-            emsdk: sdk-fastcomp-1.38.27-64bit
-          - platform: msvc2017_64
-            os: windows-latest
-          - platform: msvc2017
-            os: windows-latest
-          - platform: winrt_x64_msvc2017
-            os: windows-latest
-          - platform: winrt_x86_msvc2017
-            os: windows-latest
-          - platform: winrt_armv7_msvc2017
-            os: windows-2016  # not working with latest yet...
-          - platform: mingw73_64
-            os: windows-latest
-          - platform: mingw73_32
-            os: windows-latest
-          - platform: clang_64
-            os: macos-latest
-          - platform: ios
-            os: macos-latest
+          - {host: mac,     target: desktop, qt-version: "5.15.2", arch: clang64}
+          - {host: mac,     target: desktop, qt-version: "6.5.3",  arch: clang64}
+          - {host: mac,     target: desktop, qt-version: "6.7.0",  arch: clang64}
+          - {host: mac,     target: ios,     qt-version: "5.15.2", arch: ios}
+          - {host: mac,     target: ios,     qt-version: "6.5.3",  arch: ios}
+          - {host: mac,     target: ios,     qt-version: "6.7.0",  arch: ios}
+          - {host: windows, target: desktop, qt-version: "5.15.2", arch: win64_msvc2019_64}
+          - {host: windows, target: desktop, qt-version: "5.15.2", arch: win32_msvc2019}
+          - {host: windows, target: desktop, qt-version: "6.5.3",  arch: win64_msvc2019_64}
+          - {host: windows, target: desktop, qt-version: "6.7.0",  arch: win64_msvc2019_64}
+          - {host: linux,   target: desktop, qt-version: "5.15.2", arch: gcc64}
+          - {host: linux,   target: desktop, qt-version: "6.5.3",  arch: gcc64}
+          - {host: linux,   target: desktop, qt-version: "6.7.0",  arch: gcc64}
+          - {host: linux,   target: android, qt-version: "5.15.2", arch: android}
+          - {host: linux,   target: android, qt-version: "6.5.3",  arch: android_arm64_v8a}
+          - {host: linux,   target: android, qt-version: "6.7.0",  arch: android_arm64_v8a}
 
-    runs-on: ${{matrix.os}}
+    runs-on: ${{ format('{1}-latest', (matrix.host == 'mac' && 'macos') || (matrix.host == 'linux' && 'ubuntu') || matrix.host) }}
+    env:
+      IS_IOS: ${{ matrix.arch == 'ios' }}
+      IS_ANDROID: ${{ startsWith(matrix.arch, 'android') }}
+      IS_WINDOWS: ${{ matrix.host == 'windows' }}
+      IS_MACOS_DESKTOP: ${{ matrix.host == 'mac' && matrix.target == 'desktop' }}
+      IS_WIN32: ${{ startsWith(matrix.arch, 'win32') }}
+      APNG_FLAGS: ${{ format('-DAPNG_TESTS=On -DAPNG_EXAMPLES=On -DAPNG_QT6={1} -DCMAKE_BUILD_TYPE=Release', startsWith(matrix.qt-version, '6') && 'On' || 'Off') }}
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: actions/setup-python@v1
-      - name: actions/cache emsdk
-        uses: actions/cache@v1
-        if: matrix.platform == 'wasm_32'
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
         with:
-          path: emsdk-cache
-          key: ${{runner.os}}-emsdk-${{matrix.emsdk}}
-      - uses: mymindstorm/setup-emsdk@v3
-        if: matrix.platform == 'wasm_32'
-        with:
-          version: ${{matrix.emsdk}}
-          actions-cache-folder: emsdk-cache
-      - name: actions/cache qt
-        uses: actions/cache@v1
-        id: cache
-        with:
-          path: qt/${{matrix.version}}/${{matrix.platform}}
-          key: qt-${{matrix.version}}-${{matrix.platform}}
-      - uses: Skycoder42/action-setup-qt@master
-        id: qt
-        with:
-          version: ${{matrix.version}}
-          platform: ${{matrix.platform}}
-          cachedir: qt/${{matrix.version}}/${{matrix.platform}}
-      - name: qmake
-        run: |
-          qmake CONFIG+=install_ok QT_PLATFORM=${{matrix.platform}}
-          ${{steps.qt.outputs.make}} qmake_all
-      - name: make module
-        run: |
-          ${{steps.qt.outputs.make}}
-          ${{steps.qt.outputs.make}} INSTALL_ROOT="${{steps.qt.outputs.installdir}}" install
-      - name: make tests
-        if: steps.qt.outputs.tests == 'true'
-        run: |
-          ${{steps.qt.outputs.make}} all
-          ${{steps.qt.outputs.make}} ${{steps.qt.outputs.testflags}} run-tests
-      - name: make examples
-        if: matrix.platform == 'gcc_64'
-        run: |
-          ${{steps.qt.outputs.make}} sub-examples
-          cd examples && ${{steps.qt.outputs.make}} INSTALL_ROOT="${{steps.qt.outputs.installdir}}" install
-#      - name: make doc
-#        if: matrix.platform == 'gcc_64'
-#        run: |
-#          ${{steps.qt.outputs.make}} doxygen
-#          cd doc && ${{steps.qt.outputs.make}} INSTALL_ROOT="${{steps.qt.outputs.installdir}}" install
-      - name: upload module to releases
-        uses: Skycoder42/action-upload-release@master
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          repo_token: ${{secrets.GITHUB_TOKEN}}
-          directory: ${{steps.qt.outputs.outdir}}/${{matrix.version}}
-          asset_name: qtapng-${{matrix.platform}}-${{matrix.version}}
-          tag: ${{github.ref}}
-          overwrite: true
-      - name: upload examples to releases
-        uses: Skycoder42/action-upload-release@master
-        if: matrix.platform == 'gcc_64' && startsWith(github.ref, 'refs/tags/')
-        with:
-          repo_token: ${{secrets.GITHUB_TOKEN}}
-          directory: ${{steps.qt.outputs.outdir}}/${{matrix.version}}/${{matrix.platform}}/examples
-          asset_name: qtapng-examples-${{matrix.version}}
-          tag: ${{github.ref}}
-          overwrite: true
-#      - name: upload doc to releases
-#        uses: Skycoder42/action-upload-release@master
-#        if: matrix.platform == 'gcc_64' && startsWith(github.ref, 'refs/tags/')
-#        with:
-#          repo_token: ${{secrets.GITHUB_TOKEN}}
-#          directory: ${{steps.qt.outputs.outdir}}/${{matrix.version}}/${{matrix.platform}}/doc
-#          asset_name: qtapng-doc-${{matrix.version}}
-#          tag: ${{github.ref}}
-#          overwrite: true
+          version: ${{matrix.qt-version}}
+          host: ${{matrix.host}}
+          target: ${{matrix.target}}
+          arch: ${{matrix.arch}}
 
-  deploy:
-    if: startsWith(github.ref, 'refs/tags/')
-    needs: [build]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/setup-python@v1
-      - uses: Skycoder42/action-deploy-qt@master
+      - name: Setup NDK (Android)
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        if: ${{ env.IS_ANDROID }}
         with:
-          token: ${{secrets.GITHUB_TOKEN}}
-          version: 5.14.1
-          host: ${{secrets.SSHFS_HOST}}
-          key: ${{secrets.SSHFS_KEY}}
-          port: ${{secrets.SSHFS_PORT}}
-          excludes: doc
+          ndk-version: r26b
+          add-to-path: false
+
+      - name: Enable Developer Command Prompt (Windows)
+        if: ${{ env.IS_WINDOWS }}
+        uses: ilammy/msvc-dev-cmd@v1.13.0
+        with:
+          arch: ${{ env.IS_WIN32 && 'x86' || 'x64' }}
+
+      - name: Configure (Android)
+        if: ${{ env.IS_IOS }}
+        run: |
+          cmake -B build ${{ env.APNG_FLAGS }} \
+            -DCMAKE_SYSTEM_NAME=Android \
+            -DCMAKE_SYSTEM_VERSION=26 \
+            -DCMAKE_ANDROID_ARCH_ABI=arm64-v8a \
+            "-DCMAKE_ANDROID_NDK=${{steps.setup-ndk.outputs.ndk-path}}" \
+            -DCMAKE_ANDROID_STL_TYPE=gnustl_static
+
+      - name: Configure (iOS)
+        if: ${{ env.IS_IOS }}
+        run: |
+          cmake -B build -GXcode -DCMAKE_SYSTEM_NAME=iOS ${{ env.APNG_FLAGS }}
+
+      - name: Configure (Windows)
+        if: ${{ env.IS_WINDOWS }}
+        run: |
+          cmake -B build -A ${{ env.IS_WIN32 && 'Win32' || 'x64' }} ${{ env.APNG_FLAGS }}
+
+      - name: Configure (macOS Desktop)
+        if: ${{ env.IS_WINDOWS }}
+        run: |
+          cmake -B build -DCMAKE_OSX_ARCHITECTURES=arm64;x86_64 ${{ env.APNG_FLAGS }}
+
+      - name: Configure (common)
+        if: ${{ !(env.IS_ANDROID || env.IS_IOS || env.IS_WINDOWS || env.IS_MACOS_DESKTOP) }}
+        run: |
+          cmake -B build ${{ env.APNG_FLAGS }}
+
+      - name: Build
+        run: cmake --build build
