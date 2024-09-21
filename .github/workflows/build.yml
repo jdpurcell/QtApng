@@ -14,14 +14,14 @@ jobs:
         # prettier-ignore
         include:
           - {host: mac,     target: desktop, qt-version: "6.5.3",  arch: clang_64}
-          - {host: mac,     target: desktop, qt-version: "6.7.0",  arch: clang_64}
+          - {host: mac,     target: desktop, qt-version: "6.7.2",  arch: clang_64}
           - {host: windows, target: desktop, qt-version: "5.15.2", arch: win64_msvc2019_64}
           - {host: windows, target: desktop, qt-version: "5.15.2", arch: win32_msvc2019}
           - {host: windows, target: desktop, qt-version: "6.5.3",  arch: win64_msvc2019_64}
-          - {host: windows, target: desktop, qt-version: "6.7.0",  arch: win64_msvc2019_64}
+          - {host: windows, target: desktop, qt-version: "6.7.2",  arch: win64_msvc2019_64}
           - {host: linux,   target: desktop, qt-version: "5.15.2", arch: gcc_64}
           - {host: linux,   target: desktop, qt-version: "6.5.3",  arch: gcc_64}
-          - {host: linux,   target: desktop, qt-version: "6.7.0",  arch: linux_gcc_64}
+          - {host: linux,   target: desktop, qt-version: "6.7.2",  arch: linux_gcc_64}
 
     runs-on: ${{ format('{0}-latest', (matrix.host == 'mac' && 'macos') || (matrix.host == 'linux' && 'ubuntu') || matrix.host) }}
     env:
