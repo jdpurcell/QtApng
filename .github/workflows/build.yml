@@ -25,6 +25,7 @@ jobs:
     env:
       APNG_FLAGS: ${{ format('-DAPNG_TESTS=On -DAPNG_EXAMPLES=On -DAPNG_QT6={0} -DCMAKE_BUILD_TYPE=Release', startsWith(matrix.qt-version, '6') && 'On' || 'Off') }}
       ARTIFACT_NAME: ${{ matrix.host == 'mac' && 'libqapng.dylib' || matrix.host == 'linux' && 'libqapng.so' || matrix.host == 'windows' && 'qapng.dll' || 'NO_NAME' }}
+      ARTIFACT_DIR: ${{ matrix.host == 'windows' && 'build/plugins/imageformats/Release' || 'build/plugins/imageformats' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -63,7 +64,7 @@ jobs:
 
       - name: Build (Windows/Linux)
         if: matrix.host != 'mac'
-        run: cmake --build build
+        run: cmake --build build --config Release
 
       - name: Build (macOS)
         if: matrix.host == 'mac'
@@ -83,7 +84,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: ${{matrix.host}}-${{matrix.target}}-${{matrix.arch}}-${{matrix.qt-version}}-${{env.ARTIFACT_NAME}}
-          path: build/plugins/imageformats/${{env.ARTIFACT_NAME}}
+          path: ${{env.ARTIFACT_DIR}}/${{env.ARTIFACT_NAME}}
 
   create-release:
     needs: [build]
