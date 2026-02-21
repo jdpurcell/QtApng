@@ -1,0 +1,24 @@
+--- src/scripts/cmake/genout.cmake.in
++++ src/scripts/cmake/genout.cmake.in
+@@ -28,6 +28,21 @@
+ set(PNGLIB_VERSION "@PNGLIB_VERSION@")
+ set(ZLIBINCDIR "@ZLIB_INCLUDE_DIRS@")
+ 
++# Sanitize include dirs in case generator expressions sneak through (e.g. zlib 1.3.2).
++set(_ZLIBINCDIR)
++foreach(dir ${ZLIBINCDIR})
++  if(dir MATCHES "^\\$<BUILD_INTERFACE:(.*)>$")
++    list(APPEND _ZLIBINCDIR "${CMAKE_MATCH_1}")
++  elseif(dir MATCHES "^\\$<INSTALL_INTERFACE:(.*)>$")
++    # Install interface paths are irrelevant when generating build-time files.
++  elseif(dir MATCHES "^\\$<.*>$")
++    message(WARNING "Ignoring unsupported generator expression '${dir}' in ZLIB include dirs")
++  elseif(dir)
++    list(APPEND _ZLIBINCDIR "${dir}")
++  endif()
++endforeach()
++set(ZLIBINCDIR ${_ZLIBINCDIR})
++
+ set(PLATFORM_C_FLAGS)
+ if(APPLE)
+   set(CMAKE_OSX_INTERNAL_ARCHITECTURES "@CMAKE_OSX_INTERNAL_ARCHITECTURES@")

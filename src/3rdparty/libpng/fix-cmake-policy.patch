@@ -1,5 +1,5 @@
---- src/CMakeLists.txt	2024-05-07 19:32:16.103528595 +0200
-+++ src/CMakeLists.txt	2024-05-07 19:32:20.593526659 +0200
+--- src/CMakeLists.txt
++++ src/CMakeLists.txt
 @@ -35,6 +35,8 @@
    cmake_policy(SET CMP0074 NEW)
  endif()
