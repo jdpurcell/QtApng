@@ -84,7 +84,7 @@ jobs:
 
       - name: Test
         env:
-          QT_QPA_PLATFORM: ${{ matrix.host == 'linux' && 'offscreen' || 'default' }}
+          QT_QPA_PLATFORM: offscreen
         run: ./${{env.TEST_DIR}}/${{env.TEST_NAME}}
 
       - name: Upload artifact
