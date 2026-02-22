@@ -26,6 +26,8 @@ jobs:
       APNG_FLAGS: ${{ format('-DAPNG_TESTS=On -DAPNG_EXAMPLES=On -DAPNG_QT6={0} -DCMAKE_BUILD_TYPE=Release', startsWith(matrix.qt-version, '6') && 'On' || 'Off') }}
       ARTIFACT_NAME: ${{ matrix.host == 'mac' && 'libqapng.dylib' || matrix.host == 'linux' && 'libqapng.so' || matrix.host == 'windows' && 'qapng.dll' || 'NO_NAME' }}
       ARTIFACT_DIR: ${{ matrix.host == 'windows' && 'build/plugins/imageformats/Release' || 'build/plugins/imageformats' }}
+      TEST_NAME: ${{ matrix.host == 'windows' && 'ApngTests.exe' || 'ApngTests' }}
+      TEST_DIR: ${{ matrix.host == 'windows' && 'build/Release' || matrix.host == 'mac' && 'build-arm64' || 'build' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -85,6 +87,13 @@ jobs:
         with:
           name: ${{matrix.host}}-${{matrix.target}}-${{matrix.arch}}-${{matrix.qt-version}}-${{env.ARTIFACT_NAME}}
           path: ${{env.ARTIFACT_DIR}}/${{env.ARTIFACT_NAME}}
+
+      - name: Run tests
+        # TODO: Figure out why tests don't work on Windows/Linux
+        if: matrix.host == 'mac'
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ./${{env.TEST_DIR}}/${{env.TEST_NAME}}
 
   create-release:
     needs: [build]

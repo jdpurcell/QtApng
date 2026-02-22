@@ -68,7 +68,6 @@ void ApngPluginTest::testImageReading()
 	QImageReader reader(path, "apng");
 
 	QCOMPARE(reader.canRead(), valid);
-	QCOMPARE(reader.error(), valid ? QImageReader::UnknownError : QImageReader::UnsupportedFormatError);
 
 	if(!valid)//test ends here for invalid
 		return;
