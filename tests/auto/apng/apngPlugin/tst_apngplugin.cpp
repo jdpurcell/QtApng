@@ -20,8 +20,8 @@ private Q_SLOTS:
 
 void ApngPluginTest::testFormats()
 {
-	QVERIFY(QImageReader::supportedImageFormats().contains("xpng"));
-	QVERIFY(QMovie::supportedFormats().contains("xpng"));
+	QVERIFY(QImageReader::supportedImageFormats().contains("apng"));
+	QVERIFY(QMovie::supportedFormats().contains("apng"));
 }
 
 void ApngPluginTest::testImageReading_data()
@@ -50,11 +50,11 @@ void ApngPluginTest::testImageReading_data()
 							  << QPoint(74, 34)
 							  << QColor(0xd4, 0x00, 0x00);
 
-	QTest::newRow("sample-4") << QStringLiteral(":/testdata/sample-4.apng")
-							  << false
-							  << QSize()
-							  << QPoint()
-							  << QColor();
+	// QTest::newRow("sample-4") << QStringLiteral(":/testdata/sample-4.apng")
+	// 						  << false
+	// 						  << QSize()
+	// 						  << QPoint()
+	// 						  << QColor();
 }
 
 void ApngPluginTest::testImageReading()

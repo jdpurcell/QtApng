@@ -83,8 +83,9 @@ jobs:
           lipo -info ./plugins/imageformats/libqapng.dylib
 
       - name: Test
-        run: |
-          ./${{env.TEST_DIR}}/${{env.TEST_NAME}}
+        env:
+          QT_QPA_PLATFORM: ${{ matrix.host == 'linux' && 'offscreen' || 'default' }}
+        run: ./${{env.TEST_DIR}}/${{env.TEST_NAME}}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
