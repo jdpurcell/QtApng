@@ -82,6 +82,11 @@ jobs:
             -output ./plugins/imageformats/libqapng.dylib
           lipo -info ./plugins/imageformats/libqapng.dylib
 
+      - name: Fix Linking (Linux)
+        if: matrix.host == 'linux'
+        run: |
+          patchelf --set-rpath '$ORIGIN/../../lib' ${{env.ARTIFACT_DIR}}/${{env.ARTIFACT_NAME}}
+
       - name: Test
         env:
           QT_QPA_PLATFORM: offscreen
