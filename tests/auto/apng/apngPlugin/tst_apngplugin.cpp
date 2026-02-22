@@ -20,8 +20,8 @@ private Q_SLOTS:
 
 void ApngPluginTest::testFormats()
 {
-	QVERIFY(QImageReader::supportedImageFormats().contains("apng"));
-	QVERIFY(QMovie::supportedFormats().contains("apng"));
+	QVERIFY(QImageReader::supportedImageFormats().contains("xpng"));
+	QVERIFY(QMovie::supportedFormats().contains("xpng"));
 }
 
 void ApngPluginTest::testImageReading_data()
