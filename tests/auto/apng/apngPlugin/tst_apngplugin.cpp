@@ -50,11 +50,11 @@ void ApngPluginTest::testImageReading_data()
 							  << QPoint(74, 34)
 							  << QColor(0xd4, 0x00, 0x00);
 
-	// QTest::newRow("sample-4") << QStringLiteral(":/testdata/sample-4.apng")
-	// 						  << false
-	// 						  << QSize()
-	// 						  << QPoint()
-	// 						  << QColor();
+	QTest::newRow("sample-4") << QStringLiteral(":/testdata/sample-4.apng")
+							  << false
+							  << QSize()
+							  << QPoint()
+							  << QColor();
 }
 
 void ApngPluginTest::testImageReading()
@@ -68,13 +68,13 @@ void ApngPluginTest::testImageReading()
 	QImageReader reader(path, "apng");
 
 	QCOMPARE(reader.canRead(), valid);
+	auto image = reader.read();
 	QCOMPARE(reader.error(), valid ? QImageReader::UnknownError : QImageReader::UnsupportedFormatError);
 
 	if(!valid)//test ends here for invalid
 		return;
 
 	QCOMPARE(reader.format(), QByteArray("apng"));
-	auto image = reader.read();
 	QVERIFY(!image.isNull());
 	QCOMPARE(image.size(), size);
 	QCOMPARE(image.pixelColor(controlPixel), controlPixelColor);

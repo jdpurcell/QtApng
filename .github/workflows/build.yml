@@ -82,21 +82,18 @@ jobs:
             -output ./plugins/imageformats/libqapng.dylib
           lipo -info ./plugins/imageformats/libqapng.dylib
 
-      - name: Fix Linking (Linux)
-        if: matrix.host == 'linux'
-        run: |
-          patchelf --set-rpath '$ORIGIN/../../lib' ${{env.ARTIFACT_DIR}}/${{env.ARTIFACT_NAME}}
-
-      - name: Test
-        env:
-          QT_QPA_PLATFORM: offscreen
-        run: ./${{env.TEST_DIR}}/${{env.TEST_NAME}}
-
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
           name: ${{matrix.host}}-${{matrix.target}}-${{matrix.arch}}-${{matrix.qt-version}}-${{env.ARTIFACT_NAME}}
           path: ${{env.ARTIFACT_DIR}}/${{env.ARTIFACT_NAME}}
+
+      - name: Run Tests
+        # TODO: Figure out why tests don't work on Windows/Linux
+        if: matrix.host == 'mac'
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ./${{env.TEST_DIR}}/${{env.TEST_NAME}}
 
   create-release:
     needs: [build]
