@@ -30,4 +30,11 @@ set_target_properties(ApngImagePlugin PROPERTIES
   AUTOMOC ON
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins/imageformats"
   LIBRARY_OUTPUT_NAME qapng
+  C_VISIBILITY_PRESET hidden
+  CXX_VISIBILITY_PRESET hidden
+  VISIBILITY_INLINES_HIDDEN YES
 )
+
+if(UNIX AND NOT APPLE)
+  target_link_options(ApngImagePlugin PRIVATE "LINKER:--exclude-libs,ALL")
+endif()
