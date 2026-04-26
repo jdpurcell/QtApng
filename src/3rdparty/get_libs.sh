@@ -2,7 +2,7 @@
 set -xe
 
 ZLIB_VERSION="1.3.2"
-LIBPNG_VERSION="1.6.56"
+LIBPNG_VERSION="1.6.57"
 
 cd $(dirname $0)
 rm -rf zlib/src libpng/src
