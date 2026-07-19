@@ -12,14 +12,11 @@ jobs:
       matrix:
         # prettier-ignore
         include:
-          - {host: mac,     target: desktop, qt-version: "6.5.3",  arch: clang_64}
-          - {host: mac,     target: desktop, qt-version: "6.7.3",  arch: clang_64}
+          - {host: mac,     target: desktop, qt-version: "6.11.1",  arch: clang_64}
           - {host: windows, target: desktop, qt-version: "5.15.2", arch: win32_msvc2019}
-          - {host: windows, target: desktop, qt-version: "6.5.3",  arch: win64_msvc2019_64}
-          - {host: windows, target: desktop, qt-version: "6.7.3",  arch: win64_msvc2019_64}
+          - {host: windows, target: desktop, qt-version: "6.11.1",  arch: win64_msvc2022_64}
           - {host: linux,   target: desktop, qt-version: "5.15.2", arch: gcc_64}
-          - {host: linux,   target: desktop, qt-version: "6.5.3",  arch: gcc_64}
-          - {host: linux,   target: desktop, qt-version: "6.7.3",  arch: linux_gcc_64}
+          - {host: linux,   target: desktop, qt-version: "6.11.1",  arch: linux_gcc_64}
 
     runs-on: ${{ format('{0}-latest', (matrix.host == 'mac' && 'macos') || (matrix.host == 'linux' && 'ubuntu') || matrix.host) }}
     env:
@@ -29,18 +26,20 @@ jobs:
       TEST_NAME: ${{ matrix.host == 'windows' && 'ApngTests.exe' || 'ApngTests' }}
       TEST_DIR: ${{ matrix.host == 'windows' && 'build/Release' || matrix.host == 'mac' && 'build-arm64' || 'build' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Install Qt
-        uses: jurplel/install-qt-action@v4
+        uses: jdpurcell/install-qt-action@v5
         with:
           version: ${{matrix.qt-version}}
           host: ${{matrix.host}}
           target: ${{matrix.target}}
           arch: ${{matrix.arch}}
           cache: true
+          use-naqt: true
+          setup-python: false
 
       - name: Enable Developer Command Prompt (Windows)
         if: matrix.host == 'windows'
@@ -83,7 +82,7 @@ jobs:
           lipo -info ./plugins/imageformats/libqapng.dylib
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{matrix.host}}-${{matrix.target}}-${{matrix.arch}}-${{matrix.qt-version}}-${{env.ARTIFACT_NAME}}
           path: ${{env.ARTIFACT_DIR}}/${{env.ARTIFACT_NAME}}
@@ -101,14 +100,14 @@ jobs:
     if: (github.event_name == 'push' && github.ref == 'refs/heads/release')
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Create Directory
         run: mkdir release-artifacts
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           path: release-artifacts
           merge-multiple: true
