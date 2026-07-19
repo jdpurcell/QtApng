@@ -15,7 +15,7 @@ target_link_libraries(ApngImagePlugin PRIVATE
   Qt${APNG_QT_VERSION}::Core
   Qt${APNG_QT_VERSION}::Gui
   png_static
-  zlibstatic
+  ZLIB::ZLIB
 )
 
 get_target_property(_png_include png_static INCLUDE_DIRECTORIES)

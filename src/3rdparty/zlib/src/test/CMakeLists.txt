@@ -1,318 +1,256 @@
-function(ZLIB_findTestEnv testName)
-    set(testEnv "PATH=")
+macro(configure_test_executable target)
+    target_include_directories(${target} PRIVATE ${PROJECT_BINARY_DIR} ${PROJECT_SOURCE_DIR})
+    set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
+    if(NOT WITH_GZFILEOP)
+        target_compile_definitions(${target} PRIVATE -DWITH_GZFILEOP)
+        target_sources(${target} PRIVATE ${ZLIB_GZFILE_PRIVATE_HDRS} ${ZLIB_GZFILE_SRCS})
+    endif()
+endmacro()
 
-    if(MSVC OR MINGW)
-        set(separator "\\\;")
-    else()
-        set(separator ":")
+if(TEST_STOCK_ZLIB)
+    add_definitions(-DTEST_STOCK_ZLIB)
+endif()
+
+add_executable(example example.c)
+configure_test_executable(example)
+target_link_libraries(example zlib-ng)
+add_test(NAME example COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:example>)
+
+add_executable(minigzip minigzip.c)
+configure_test_executable(minigzip)
+if(NOT DEFINED BUILD_SHARED_LIBS)
+    target_link_libraries(minigzip zlib-ng-static)
+else()
+    target_link_libraries(minigzip zlib-ng)
+endif()
+if(BASEARCH_S360_FOUND)
+    if(WITH_DFLTCC_DEFLATE OR WITH_DFLTCC_INFLATE)
+        set_source_files_properties(minigzip.c PROPERTIES COMPILE_DEFINITIONS BUFLEN=262144)
+    endif()
+endif()
+set(MINIGZIP_COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:minigzip>)
+
+add_executable(minideflate minideflate.c)
+configure_test_executable(minideflate)
+target_link_libraries(minideflate zlib-ng)
+set(MINIDEFLATE_COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:minideflate>)
+
+if(INSTALL_UTILS)
+    install(TARGETS minigzip minideflate
+        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+        ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+endif()
+
+add_executable(switchlevels switchlevels.c)
+configure_test_executable(switchlevels)
+target_link_libraries(switchlevels zlib-ng)
+set(SWITCHLEVELS_COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:switchlevels>)
+
+add_executable(infcover infcover.c)
+configure_test_executable(infcover)
+target_link_libraries(infcover zlib-ng)
+if(NOT DEFINED BUILD_SHARED_LIBS OR BUILD_SHARED_LIBS)
+    target_sources(infcover PRIVATE ${PROJECT_SOURCE_DIR}/inftrees.c)
+endif()
+add_test(NAME infcover COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:infcover>)
+
+add_executable(makefixed ${PROJECT_SOURCE_DIR}/tools/makefixed.c ${PROJECT_SOURCE_DIR}/inftrees.c)
+configure_test_executable(makefixed)
+set(MAKEFIXED_COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:makefixed>)
+
+add_executable(maketrees ${PROJECT_SOURCE_DIR}/tools/maketrees.c ${PROJECT_SOURCE_DIR}/trees.c ${PROJECT_SOURCE_DIR}/zutil.c)
+configure_test_executable(maketrees)
+set(MAKETREES_COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:maketrees>)
+
+add_executable(makecrct ${PROJECT_SOURCE_DIR}/tools/makecrct.c)
+configure_test_executable(makecrct)
+set(MAKECRCT_COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:makecrct>)
+
+# Emscripten does not support large amounts of data via stdin/out
+# https://github.com/emscripten-core/emscripten/issues/16755#issuecomment-1102732849
+if(NOT BASEARCH_WASM32_FOUND)
+    # Runs tests targeting CVEs
+    include(cmake/test-cves.cmake)
+
+    # Run tests with data files
+    include(cmake/test-data.cmake)
+
+    # Run tests targeting GitHub issues
+    include(cmake/test-issues.cmake)
+
+    # Run tests targeting tools
+    include(cmake/test-tools.cmake)
+endif()
+
+if(WITH_FUZZERS)
+    add_subdirectory(fuzz)
+endif()
+
+if(WITH_BENCHMARKS)
+    add_subdirectory(benchmarks)
+endif()
+
+if(WITH_GTEST)
+    # Google test requires at least C++11
+    if(NOT DEFINED CMAKE_CXX_STANDARD)
+        set(CMAKE_CXX_STANDARD 11)
     endif()
 
-    string(APPEND testEnv "$<TARGET_FILE_DIR:ZLIB::ZLIB>${separator}")
-    string(APPEND testEnv "$ENV{PATH}")
+    # Google test requires MSAN instrumented LLVM C++ libraries
+    if(WITH_SANITIZER STREQUAL "Memory")
+        if(NOT DEFINED ENV{LLVM_BUILD_DIR})
+            message(FATAL_ERROR "MSAN instrumented C++ libraries required!")
+        endif()
 
-    set_tests_properties(${testName} PROPERTIES ENVIRONMENT "${testEnv}")
-endfunction()
+        # Must set include and compile options before fetching googletest
+        include_directories($ENV{LLVM_BUILD_DIR}/include $ENV{LLVM_BUILD_DIR}/include/c++/v1)
+        add_compile_options(-stdlib=libc++ -g)
+    elseif(NOT TARGET GTest::GTest)
+        find_package(GTest)
+    endif()
 
-if(ZLIB_BUILD_SHARED)
-    add_executable(zlib_example example.c)
-    target_link_libraries(zlib_example ZLIB::ZLIB)
-    target_compile_definitions(zlib_example PRIVATE ZLIB_BUILD)
-    add_test(NAME zlib_example COMMAND zlib_example)
+    if(NOT TARGET GTest::GTest AND NOT CMAKE_VERSION VERSION_LESS 3.11)
+        include(FetchContent)
 
-    add_executable(minigzip minigzip.c)
-    target_compile_definitions(
-        minigzip PRIVATE $<$<BOOL:${HAVE___ATTR__VIS_HIDDEN}>:HAVE_HIDDEN>)
-    target_link_libraries(minigzip ZLIB::ZLIB)
+        # Prevent overriding the parent project's compiler/linker settings for Windows
+        set(gtest_force_shared_crt ON CACHE BOOL
+            "Use shared (DLL) run-time lib even when Google Test is built as static lib." FORCE)
 
-    if(MSVC
-       OR MSYS
-       OR MINGW
-       OR CYGWIN)
-        zlib_findtestenv(zlib_example)
-    endif(
-        MSVC
-        OR MSYS
-        OR MINGW
-        OR CYGWIN)
+        # Allow specifying alternative Google test repository
+        if(NOT DEFINED GTEST_REPOSITORY)
+            set(GTEST_REPOSITORY https://github.com/google/googletest.git)
+        endif()
+        if(NOT DEFINED GTEST_TAG)
+            # Use older version of Google test to support older versions of GCC
+            if (CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS_EQUAL 5.3)
+                set(GTEST_TAG release-1.10.0)
+            else()
+                set(GTEST_TAG release-1.12.1)
+            endif()
+        endif()
 
-    if(HAVE_OFF64_T)
-        add_executable(zlib_example64 example.c)
-        target_compile_definitions(
-            zlib_example64
-            PRIVATE ZLIB_BUILD
-                    $<$<BOOL:${HAVE___ATTR__VIS_HIDDEN}>:HAVE_HIDDEN>)
-        target_link_libraries(zlib_example64 ZLIB::ZLIB)
-        add_test(NAME zlib_example64 COMMAND zlib_example64)
+        # Fetch Google test source code from official repository
+        message(STATUS "Git checking out GoogleTest ${GTEST_TAG}")
+        FetchContent_Declare(googletest
+            GIT_REPOSITORY ${GTEST_REPOSITORY}
+            GIT_TAG ${GTEST_TAG})
 
-        if(MSVC
-           OR MSYS
-           OR MINGW
-           OR CYGWIN)
-            zlib_findtestenv(zlib_example64)
-        endif(
-            MSVC
-            OR MSYS
-            OR MINGW
-            OR CYGWIN)
-    endif(HAVE_OFF64_T)
-endif(ZLIB_BUILD_SHARED)
+        FetchContent_GetProperties(googletest)
+        if(NOT googletest_POPULATED)
+            FetchContent_Populate(googletest)
+            add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR} EXCLUDE_FROM_ALL)
+        endif()
+        add_library(GTest::GTest ALIAS gtest)
+        add_library(GTest::Main ALIAS gtest_main)
+    endif()
 
-if(ZLIB_BUILD_STATIC)
-    add_executable(zlib_static_example example.c)
-    target_link_libraries(zlib_static_example ZLIB::ZLIBSTATIC)
-    target_compile_definitions(
-        zlib_static_example
-        PRIVATE ZLIB_BUILD
-                $<$<BOOL:${HAVE___ATTR__VIS_HIDDEN}>:HAVE_HIDDEN>)
-    add_test(NAME zlib_static_example COMMAND zlib_static_example)
+    if(TARGET GTest::GTest)
+        set(TEST_SRCS
+            test_compress.cc
+            test_compress_bound.cc
+            test_cve-2003-0107.cc
+            test_deflate_bound.cc
+            test_deflate_copy.cc
+            test_deflate_dict.cc
+            test_deflate_hash_head_0.cc
+            test_deflate_header.cc
+            test_deflate_params.cc
+            test_deflate_pending.cc
+            test_deflate_prime.cc
+            test_deflate_quick_bi_valid.cc
+            test_deflate_quick_block_open.cc
+            test_deflate_tune.cc
+            test_dict.cc
+            test_inflate_adler32.cc
+            test_inflate_copy.cc
+            test_large_buffers.cc
+            test_raw.cc
+            test_small_buffers.cc
+            test_small_window.cc
+            )
 
-    add_executable(static_minigzip minigzip.c)
-    target_link_libraries(static_minigzip ZLIB::ZLIBSTATIC)
+        if(WITH_GZFILEOP)
+            list(APPEND TEST_SRCS test_gzio.cc)
+        endif()
 
-    if(${CMAKE_C_COMPILER_ID} STREQUAL "GNU" OR ${CMAKE_C_COMPILER_ID} STREQUAL
-                                                "Clang")
-        set(CFLAGS_OLD ${CMAKE_C_FLAGS})
-        set(CMAKE_C_FLAGS
-            ""
-            CACHE STRING "" FORCE)
+        if(NOT TEST_STOCK_ZLIB)
+            list(APPEND TEST_SRCS
+                test_adler32.cc             # adler32_neon(), etc
+                test_compare256.cc          # compare256_neon(), etc
+                test_compare256_rle.cc      # compare256_rle(), etc
+                test_crc32.cc               # crc32_armv8(), etc
+                test_crc32_fold_copy.cc     # crc32_fold_copy implementations
+                test_deflate_deterministic.cc # deterministic output after deflateReset
+                test_inflate_sync.cc        # expects a certain compressed block layout
+                test_main.cc                # cpu_check_features()
+                test_version.cc             # expects a fixed version string
+                )
+        endif()
 
-        if(${CMAKE_C_COMPILER_ID} STREQUAL "GNU")
-            find_program(GCOV_EXECUTABLE gcov)
-        endif(${CMAKE_C_COMPILER_ID} STREQUAL "GNU")
+        add_executable(gtest_zlib ${TEST_SRCS})
+        configure_test_executable(gtest_zlib)
 
-        if(${CMAKE_C_COMPILER_ID} STREQUAL "Clang")
-            set(llvm_names llvm_cov)
-            list(APPEND llvm_names llvm-cov)
+        if(MSVC)
+            target_compile_options(gtest_zlib PRIVATE /wd4389 /EHsc)
+        endif()
 
-            foreach(ver RANGE 11 99)
-                list(APPEND llvm_names llvm-cov-${ver})
-            endforeach(ver RANGE 11 99)
+        if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+            target_compile_options(gtest_zlib PRIVATE -D_XOPEN_SOURCE=700)
+        endif()
 
-            find_program(GCOV_EXECUTABLE NAMES ${llvm_names})
-            set(llvm_option "gcov")
-        endif(${CMAKE_C_COMPILER_ID} STREQUAL "Clang")
+        if(WITH_SANITIZER STREQUAL "Memory")
+            target_link_directories(gtest_zlib PRIVATE $ENV{LLVM_BUILD_DIR}/lib)
+            target_link_options(gtest_zlib PRIVATE
+                -stdlib=libc++
+                -lc++abi
+                -fsanitize=memory
+                -fsanitize-memory-track-origins)
+        endif()
 
-        add_executable(infcover infcover.c)
-        target_link_libraries(infcover ZLIB::ZLIBSTATIC)
-        target_compile_options(infcover PRIVATE -coverage)
-        target_link_options(infcover PRIVATE -coverage)
-        target_compile_definitions(
-            infcover PRIVATE $<$<BOOL:${HAVE___ATTR__VIS_HIDDEN}>:HAVE_HIDDEN>)
-        add_test(NAME zlib_coverage COMMAND infcover)
-        set(INFCOVER_DIR ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/infcover.dir)
-        add_test(
-            NAME zlib_coverage-summary
-            COMMAND
-                ${GCOV_EXECUTABLE} ${llvm_option}
-                ${CMAKE_CURRENT_SOURCE_DIR}/infcover.c -o
-                ${INFCOVER_DIR}/infcover.c.gcda)
-        set_tests_properties(zlib_coverage-summary PROPERTIES DEPENDS
-                                                              zlib-coverage)
-        set(CMAKE_C_FLAGS
-            ${CFLAGS_OLD}
-            CACHE STRING "" FORCE)
-    endif(${CMAKE_C_COMPILER_ID} STREQUAL "GNU" OR ${CMAKE_C_COMPILER_ID}
-                                                   STREQUAL "Clang")
+        if(NOT ZLIB_COMPAT AND DEFINED ZLIB_LIBRARIES AND DEFINED ZLIB_INCLUDE_DIRS)
+            if(NOT IS_ABSOLUTE ${ZLIB_LIBRARIES})
+                get_filename_component(ZLIB_ABSOLUTE_PATH
+                    "${CMAKE_CURRENT_SOURCE_DIR}/${ZLIB_LIBRARIES}"
+                    ABSOLUTE)
+            else()
+                set(ZLIB_ABSOLUTE_PATH ${ZLIB_LIBRARIES})
+            endif()
 
-    if(HAVE_OFF64_T)
-        add_executable(zlib_static_example64 example.c)
-        target_compile_definitions(
-            zlib_static_example64
-            PRIVATE ZLIB_BUILD
-                    $<$<BOOL:${HAVE___ATTR__VIS_HIDDEN}>:HAVE_HIDDEN>)
-        target_link_libraries(zlib_static_example64 ZLIB::ZLIBSTATIC)
-        add_test(NAME zlib_static_example64 COMMAND zlib_static_example64)
-    endif(HAVE_OFF64_T)
-endif(ZLIB_BUILD_STATIC)
+            add_library(external_zlib STATIC IMPORTED)
+            set_property(TARGET external_zlib PROPERTY IMPORTED_LOCATION ${ZLIB_ABSOLUTE_PATH})
+            message(STATUS "Added dual linking tests against zlib")
+            message(STATUS "  Zlib include dirs: ${ZLIB_INCLUDE_DIRS}")
+            message(STATUS "  Zlib libraries: ${ZLIB_ABSOLUTE_PATH}")
 
-add_test(
-    NAME zlib_install
-    COMMAND ${CMAKE_COMMAND} --install ${zlib_BINARY_DIR} --prefix
-            ${CMAKE_CURRENT_BINARY_DIR}/test_install --config $<CONFIG>
-    WORKING_DIRECTORY ${zlib_BINARY_DIR})
+            target_sources(gtest_zlib PRIVATE test_compress_dual.cc)
+            target_include_directories(gtest_zlib PRIVATE ${ZLIB_INCLUDE_DIRS})
+            target_link_libraries(gtest_zlib external_zlib)
+        endif()
 
-set_tests_properties(zlib_install PROPERTIES FIXTURES_SETUP zlib_install)
+        if(NOT DEFINED BUILD_SHARED_LIBS)
+            # Link statically in order to test internal zlib-ng functions.
+            target_link_libraries(gtest_zlib zlib-ng-static)
+        else()
+            target_link_libraries(gtest_zlib zlib-ng)
+        endif()
 
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/findpackage_test)
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/find_package_no_components_test)
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/find_package_wrong_components_test)
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/add_subdirectory_test)
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/add_subdirectory_exclude_test)
+        if(BUILD_SHARED_LIBS)
+            target_link_libraries(gtest_zlib GTest::Main)
+        endif()
+        target_link_libraries(gtest_zlib GTest::GTest)
 
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/find_package_test.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/findpackage_test/CMakeLists.txt @ONLY)
+        find_package(Threads)
+        if(Threads_FOUND AND NOT BASEARCH_WASM32_FOUND)
+            target_sources(gtest_zlib PRIVATE test_deflate_concurrency.cc)
+            if(UNIX AND NOT APPLE)
+                # On Linux, use a workaround for https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52590
+                target_link_libraries(gtest_zlib -Wl,--whole-archive -lpthread -Wl,--no-whole-archive)
+            endif()
+            target_link_libraries(gtest_zlib Threads::Threads)
+        endif()
 
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/find_package_no_components_test.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/findpackage_no_components_test/CMakeLists.txt @ONLY)
-
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/find_package_wrong_components_test.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/findpackage_wrong_components_test/CMakeLists.txt @ONLY)
-
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/add_subdirectory_test.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/add_subdirectory_test/CMakeLists.txt @ONLY)
-
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/add_subdirectory_exclude_test.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/add_subdirectory_exclude_test/CMakeLists.txt
-    @ONLY)
-
-# CMAKE_GENERATOR_PLATFORM doesn't work in the if
-set(GENERATOR ${CMAKE_GENERATOR_PLATFORM})
-
-if(GENERATOR)
-    set(PLATFORM "-A ${GENERATOR}")
-endif(GENERATOR)
-#
-# findpackage_test
-#
-add_test(
-    NAME zlib_find_package_configure
-    COMMAND
-        ${CMAKE_COMMAND} ${PLATFORM}
-        -B${CMAKE_CURRENT_BINARY_DIR}/findpackage_test_build
-        -DCMAKE_BUILD_TYPE=$<CONFIG> -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-        -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
-        -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/test_install --fresh
-        -G "${CMAKE_GENERATOR}" -S${CMAKE_CURRENT_BINARY_DIR}/findpackage_test)
-
-add_test(
-    NAME zlib_find_package_build
-    COMMAND ${CMAKE_COMMAND} --build . --config $<CONFIG>
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/findpackage_test_build)
-
-add_test(
-    NAME zlib_find_package_test
-    COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG>
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/findpackage_test_build)
-
-set_tests_properties(
-    zlib_find_package_configure PROPERTIES FIXTURES_REQUIRED zlib_install
-                                           FIXTURES_SETUP fp_config)
-
-set_tests_properties(
-    zlib_find_package_build PROPERTIES FIXTURES_REQUIRED fp_config
-                                       FIXTURES_SETUP fp_build)
-
-set_tests_properties(
-    zlib_find_package_test PROPERTIES FIXTURES_REQUIRED fp_build ENVIRONMENT
-                                      CTEST_OUTPUT_ON_FAILURE=1)
-
-#
-# findpackage_no_components_test
-#
-add_test(
-    NAME zlib_find_package_no_components_configure
-    COMMAND
-        ${CMAKE_COMMAND} ${PLATFORM}
-        -B${CMAKE_CURRENT_BINARY_DIR}/findpackage_no_components_test_build
-        -DCMAKE_BUILD_TYPE=$<CONFIG> -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-        -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
-        -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/test_install --fresh
-        -G "${CMAKE_GENERATOR}"
-        -S${CMAKE_CURRENT_BINARY_DIR}/findpackage_no_components_test)
-
-set_tests_properties(
-    zlib_find_package_no_components_configure
-        PROPERTIES FIXTURES_REQUIRED zlib_install)
-
-if(NOT ZLIB_BUILD_SHARED OR NOT ZLIB_BUILD_STATIC)
-    set_tests_properties(
-        zlib_find_package_no_components_configure
-            PROPERTIES WILL_FAIL TRUE)
-endif(NOT ZLIB_BUILD_SHARED OR NOT ZLIB_BUILD_STATIC)
-
-#
-# findpackage_no_component_test
-#
-add_test(
-    NAME zlib_find_package_wrong_components_configure
-    COMMAND
-        ${CMAKE_COMMAND} ${PLATFORM}
-        -B${CMAKE_CURRENT_BINARY_DIR}/findpackage_wrong_components_test_build
-        -DCMAKE_BUILD_TYPE=$<CONFIG> -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-        -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
-        -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/test_install --fresh
-        -G "${CMAKE_GENERATOR}"
-        -S${CMAKE_CURRENT_BINARY_DIR}/findpackage_wrong_components_test)
-
-set_tests_properties(
-    zlib_find_package_wrong_components_configure
-        PROPERTIES FIXTURES_REQUIRED zlib_install
-                   WILL_FAIL TRUE)
-
-#
-# add_subdirectory_test
-#
-add_test(
-    NAME zlib_add_subdirectory_configure
-    COMMAND
-        ${CMAKE_COMMAND} ${PLATFORM}
-        -B${CMAKE_CURRENT_BINARY_DIR}/add_subdirectory_test_build
-        -DCMAKE_BUILD_TYPE=$<CONFIG> -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-        -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
-        -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/test_install --fresh
-        -G "${CMAKE_GENERATOR}" -S${CMAKE_CURRENT_BINARY_DIR}/findpackage_test)
-
-add_test(
-    NAME zlib_add_subdirectory_build
-    COMMAND ${CMAKE_COMMAND} --build . --config $<CONFIG>
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/add_subdirectory_test_build)
-
-add_test(
-    NAME zlib_add_subdirectory_test
-    COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG>
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/add_subdirectory_test_build)
-
-set_tests_properties(
-    zlib_add_subdirectory_configure PROPERTIES FIXTURES_REQUIRED zlib_install
-                                               FIXTURES_SETUP as_config)
-
-set_tests_properties(
-    zlib_add_subdirectory_build PROPERTIES FIXTURES_REQUIRED as_config
-                                           FIXTURES_SETUP as_build)
-
-set_tests_properties(
-    zlib_add_subdirectory_test PROPERTIES FIXTURES_REQUIRED as_build
-                                          ENVIRONMENT CTEST_OUTPUT_ON_FAILURE=1)
-
-#
-# add_subdirectory_exclude_test
-#
-add_test(
-    NAME zlib_add_subdirectory_exclude_configure
-    COMMAND
-        ${CMAKE_COMMAND} ${PLATFORM}
-        -B${CMAKE_CURRENT_BINARY_DIR}/add_subdirectory_exclude_test_build
-        -DCMAKE_BUILD_TYPE=$<CONFIG> -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-        -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
-        -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/test_install --fresh
-        -G "${CMAKE_GENERATOR}" -S${CMAKE_CURRENT_BINARY_DIR}/findpackage_test)
-
-add_test(
-    NAME zlib_add_subdirectory_exclude_build
-    COMMAND ${CMAKE_COMMAND} --build . --config $<CONFIG>
-    WORKING_DIRECTORY
-        ${CMAKE_CURRENT_BINARY_DIR}/add_subdirectory_exclude_test_build)
-
-add_test(
-    NAME zlib_add_subdirectory_exclude_test
-    COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG>
-    WORKING_DIRECTORY
-        ${CMAKE_CURRENT_BINARY_DIR}/add_subdirectory_exclude_test_build)
-
-set_tests_properties(
-    zlib_add_subdirectory_exclude_configure
-    PROPERTIES FIXTURES_REQUIRED zlib_install FIXTURES_SETUP asx_config)
-
-set_tests_properties(
-    zlib_add_subdirectory_exclude_build PROPERTIES FIXTURES_REQUIRED as_config
-                                                   FIXTURES_SETUP asx_build)
-
-set_tests_properties(
-    zlib_add_subdirectory_exclude_test
-    PROPERTIES FIXTURES_REQUIRED asx_build ENVIRONMENT
-               CTEST_OUTPUT_ON_FAILURE=1)
+        add_test(NAME gtest_zlib
+            COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:gtest_zlib>)
+    endif()
+endif()

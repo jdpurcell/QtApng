@@ -1,17 +1,17 @@
 #!/bin/bash
 set -xe
 
-ZLIB_VERSION="1.3.2"
+ZLIB_NG_VERSION="2.3.3"
 LIBPNG_VERSION="1.6.58"
 
 cd $(dirname $0)
 rm -rf zlib/src libpng/src
 
-# get zlib
-curl -Lo zlib.zip "https://github.com/madler/zlib/archive/refs/tags/v${ZLIB_VERSION}.zip"
+# get zlib-ng
+curl -Lo zlib.zip "https://github.com/zlib-ng/zlib-ng/archive/refs/tags/${ZLIB_NG_VERSION}.zip"
 unzip zlib.zip -d zlib
 rm zlib.zip
-mv zlib/zlib-${ZLIB_VERSION} zlib/src
+mv zlib/zlib-ng-${ZLIB_NG_VERSION} zlib/src
 
 # get libpng
 curl -Lo libpng.tar.xz "https://download.sourceforge.net/project/libpng/libpng16/${LIBPNG_VERSION}/libpng-${LIBPNG_VERSION}.tar.xz"
@@ -26,7 +26,6 @@ tr -d '\r' < libpng-apng.patch > tmpfile && mv tmpfile libpng-apng.patch
 pushd libpng/src
 patch -Np0 -i "../../libpng-apng.patch"
 patch -Np1 -i "../fix-cmake-policy.patch"
-patch -Np1 -i "../fix-zlib-include-dirs.patch"
 cp scripts/pnglibconf.h.prebuilt pnglibconf.h
 popd
 rm libpng-apng.patch

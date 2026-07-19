@@ -4,8 +4,6 @@ set(PNG_TESTS OFF CACHE BOOL "" FORCE)
 set(PNG_TOOLS OFF CACHE BOOL "" FORCE)
 set(SKIP_INSTALL_ALL ON CACHE BOOL "" FORCE)
 
-get_target_property(ZLIB_INCLUDE_DIRS zlibstatic INCLUDE_DIRECTORIES)
-
 add_subdirectory(src EXCLUDE_FROM_ALL)
 
 set_target_properties(png_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
