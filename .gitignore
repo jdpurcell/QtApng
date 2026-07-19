@@ -24,7 +24,6 @@ tags
 .directory
 *.debug
 Makefile*
-*.prl
 *.app
 moc_*.cpp
 ui_*.h
@@ -32,12 +31,6 @@ qrc_*.cpp
 Thumbs.db
 *.res
 *.rc
-/.qmake.cache
-/.qmake.stash
-
-# qtcreator generated files
-*.pro.user*
-
 # xemacs temporary files
 *.flc
 
@@ -70,9 +63,6 @@ Thumbs.db
 # --------
 *.dll
 *.exe
-
-# qpm
-vendor
 
 # Visual Studio Code settings
 .vscode/
