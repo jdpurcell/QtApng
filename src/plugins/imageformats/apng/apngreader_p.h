@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QIODevice>
 #include <png.h>
+#include <QColorSpace>
 #include <QImage>
 
 #ifndef PNG_APNG_SUPPORTED
@@ -75,6 +76,7 @@ private:
 	} _frame;
 
 	QImage _lastImg;
+	QColorSpace _colorSpace;
 
 	QList<ApngFrame> _allFrames;
 
@@ -85,6 +87,7 @@ private:
 	static void frame_info_fn(png_structp png_ptr, png_uint_32 frame_num);
 	static void frame_end_fn(png_structp png_ptr, png_uint_32 frame_num);
 
+	static QColorSpace readColorSpace(png_structp png_ptr, png_infop info_ptr);
 	bool readChunk(quint32 len = 0);
 	void copyOver();
 	void blendOver();

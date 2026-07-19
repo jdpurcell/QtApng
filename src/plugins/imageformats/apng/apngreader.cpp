@@ -1,6 +1,7 @@
 #include "apngreader_p.h"
 #include <QDebug>
 #include <QImage>
+#include <QPointF>
 #include <QRect>
 #include <QThread>
 #include <QtEndian>
@@ -137,6 +138,8 @@ void ApngReader::info_fn(png_structp png_ptr, png_infop info_ptr)
 	(void)png_set_interlace_handling(png_ptr);
 	png_read_update_info(png_ptr, info_ptr);
 
+	reader->_colorSpace = readColorSpace(png_ptr, info_ptr);
+
 	quint32 width = png_get_image_width(png_ptr, info_ptr);
 	quint32 height = png_get_image_height(png_ptr, info_ptr);
 	reader->_imageSize.setWidth(width);
@@ -163,6 +166,8 @@ void ApngReader::info_fn(png_structp png_ptr, png_infop info_ptr)
 							  static_cast<int>(frame.height),
 							  QImage::Format_ARGB32);
 	reader->_lastImg.fill(Qt::transparent);
+	if(reader->_colorSpace.isValid())
+		reader->_lastImg.setColorSpace(reader->_colorSpace);
 
 	//read apng information
 	if (png_get_valid(png_ptr, info_ptr, PNG_INFO_acTL)) {
@@ -263,6 +268,69 @@ void ApngReader::frame_end_fn(png_structp png_ptr, png_uint_32 frame_num)
 									Qt::transparent);
 		}
 	}
+}
+
+QColorSpace ApngReader::readColorSpace(png_structp png_ptr, png_infop info_ptr)
+{
+#ifdef PNG_iCCP_SUPPORTED
+	if(png_get_valid(png_ptr, info_ptr, PNG_INFO_iCCP)) {
+		png_charp name = nullptr;
+		int compressionType = 0;
+		png_bytep profileData = nullptr;
+		png_uint_32 profileLength = 0;
+		png_get_iCCP(png_ptr, info_ptr, &name, &compressionType, &profileData, &profileLength);
+		Q_UNUSED(name)
+		Q_UNUSED(compressionType)
+		if(profileLength > 0)
+			return QColorSpace::fromIccProfile(
+				QByteArray{reinterpret_cast<const char *>(profileData), static_cast<int>(profileLength)});
+	}
+#endif
+
+#ifdef PNG_sRGB_SUPPORTED
+	if(png_get_valid(png_ptr, info_ptr, PNG_INFO_sRGB)) {
+		int renderingIntent = -1;
+		png_get_sRGB(png_ptr, info_ptr, &renderingIntent);
+		if(renderingIntent >= PNG_sRGB_INTENT_PERCEPTUAL &&
+		   renderingIntent <= PNG_sRGB_INTENT_ABSOLUTE)
+			return QColorSpace::SRgb;
+	}
+#endif
+
+#ifdef PNG_gAMA_SUPPORTED
+	if(png_get_valid(png_ptr, info_ptr, PNG_INFO_gAMA)) {
+		double fileGamma = 0.0;
+		png_get_gAMA(png_ptr, info_ptr, &fileGamma);
+		if(fileGamma > 0.0) {
+#ifdef PNG_cHRM_SUPPORTED
+			if(png_get_valid(png_ptr, info_ptr, PNG_INFO_cHRM)) {
+				double whiteX, whiteY, redX, redY;
+				double greenX, greenY, blueX, blueY;
+				png_get_cHRM(png_ptr, info_ptr,
+							 &whiteX, &whiteY, &redX, &redY,
+							 &greenX, &greenY, &blueX, &blueY);
+				QColorSpace colorSpace{
+					QPointF{whiteX, whiteY},
+					QPointF{redX, redY},
+					QPointF{greenX, greenY},
+					QPointF{blueX, blueY},
+					QColorSpace::TransferFunction::Gamma,
+					static_cast<float>(1.0 / fileGamma)
+				};
+				if(colorSpace.isValid())
+					return colorSpace;
+			}
+#endif
+			return QColorSpace{
+				QColorSpace::Primaries::SRgb,
+				QColorSpace::TransferFunction::Gamma,
+				static_cast<float>(1.0 / fileGamma)
+			};
+		}
+	}
+#endif
+
+	return {};
 }
 
 bool ApngReader::readChunk(quint32 len)

@@ -10,6 +10,7 @@ target_link_libraries(ApngTests PRIVATE
   Qt${APNG_QT_VERSION}::Test
   Qt${APNG_QT_VERSION}::Core
   Qt${APNG_QT_VERSION}::Gui
+  ZLIB::ZLIB
 )
 
 set_target_properties(

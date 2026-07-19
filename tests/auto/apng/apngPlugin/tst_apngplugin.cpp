@@ -1,8 +1,13 @@
 #include <QString>
 #include <QtTest>
+#include <QBuffer>
+#include <QColorSpace>
 #include <QCoreApplication>
+#include <QFile>
 #include <QImageReader>
 #include <QMovie>
+#include <QtEndian>
+#include <zlib.h>
 
 class ApngPluginTest : public QObject
 {
@@ -16,6 +21,7 @@ private Q_SLOTS:
 	void testAnimation_data();
 	void testAnimation();
 	void testFrameDelays();
+	void testColorSpace();
 };
 
 void ApngPluginTest::testFormats()
@@ -173,6 +179,64 @@ void ApngPluginTest::testFrameDelays()
 		QCOMPARE(reader.jumpToNextImage(), dInfo.second);
 		QCOMPARE(reader.nextImageDelay(), dInfo.first);
 	}
+}
+
+void ApngPluginTest::testColorSpace()
+{
+	QFile file(QStringLiteral(":/testdata/sample-2.apng"));
+	QVERIFY(file.open(QIODevice::ReadOnly));
+	QByteArray apng = file.readAll();
+
+	const QColorSpace expectedColorSpace{QColorSpace::AdobeRgb};
+	const QByteArray profile = expectedColorSpace.iccProfile();
+	QVERIFY(!profile.isEmpty());
+
+	uLongf compressedSize = compressBound(static_cast<uLong>(profile.size()));
+	QByteArray compressed;
+	compressed.resize(static_cast<int>(compressedSize));
+	QCOMPARE(compress2(reinterpret_cast<Bytef *>(compressed.data()), &compressedSize,
+					   reinterpret_cast<const Bytef *>(profile.constData()),
+					   static_cast<uLong>(profile.size()), Z_BEST_COMPRESSION),
+			 Z_OK);
+	compressed.resize(static_cast<int>(compressedSize));
+
+	QByteArray chunkData{"Adobe RGB"};
+	chunkData.append('\0');
+	chunkData.append('\0'); // PNG compression method
+	chunkData.append(compressed);
+
+	QByteArray chunk;
+	chunk.resize(4);
+	qToBigEndian<quint32>(static_cast<quint32>(chunkData.size()),
+						 reinterpret_cast<uchar *>(chunk.data()));
+	chunk.append("iCCP", 4);
+	chunk.append(chunkData);
+
+	uLong checksum = crc32(0L, Z_NULL, 0);
+	checksum = crc32(checksum,
+					 reinterpret_cast<const Bytef *>(chunk.constData() + 4),
+					 static_cast<uInt>(chunk.size() - 4));
+	const auto oldSize = chunk.size();
+	chunk.resize(oldSize + 4);
+	qToBigEndian<quint32>(static_cast<quint32>(checksum),
+						 reinterpret_cast<uchar *>(chunk.data() + oldSize));
+
+	// Insert after the PNG signature and IHDR chunk, before the APNG chunks.
+	apng.insert(33, chunk);
+	QBuffer buffer{&apng};
+	QVERIFY(buffer.open(QIODevice::ReadOnly));
+
+	QImageReader reader{&buffer, "apng"};
+	const QColorSpace parsedColorSpace = QColorSpace::fromIccProfile(profile);
+	QVERIFY(parsedColorSpace.isValid());
+
+	const QImage firstFrame = reader.read();
+	QVERIFY(!firstFrame.isNull());
+	QCOMPARE(firstFrame.colorSpace(), parsedColorSpace);
+
+	const QImage secondFrame = reader.read();
+	QVERIFY(!secondFrame.isNull());
+	QCOMPARE(secondFrame.colorSpace(), parsedColorSpace);
 }
 
 QTEST_MAIN(ApngPluginTest)
